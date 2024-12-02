@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use home;
 use serde::{Deserialize, Serialize};
-use std::fmt::{self, Display};
+use std::fmt::{self};
 use std::fs::{self, OpenOptions};
 use std::io::Read;
 
@@ -82,19 +82,12 @@ fn main() {
             });
             println!("Todo added!");
         }
-        Commands::Toggle { index } => {
-            if index == 0 || index > rem.todos.len() {
-                println!("Invalid index: {}", index);
-            } else {
-                let todo = &mut rem.todos[index - 1];
-                todo.done = !todo.done;
-                println!(
-                    "Todo \"{}\" marked as {}",
-                    todo.content,
-                    if todo.done { "done" } else { "not done" }
-                );
+        Commands::Toggle { index } => match rem.toggle_done(index) {
+            Ok(_) => {}
+            Err(err) => {
+                panic!("ERROR::Failed to toggle todo: {err}");
             }
-        }
+        },
         Commands::Pending => {
             rem.print_pending();
         }
@@ -122,6 +115,18 @@ impl Rem {
                 println!("{}. {}", i + 1, todo);
             }
         }
+    }
+
+    fn toggle_done(&mut self, index: usize) -> Result<(), TodoError> {
+        if index == 0 || index > self.todos.len() {
+            return Err(TodoError::InvalidIndex {
+                min: 1,
+                max: self.todos.len(),
+            });
+        }
+        let todo = &mut self.todos[index - 1];
+        todo.done = !todo.done;
+        Ok(())
     }
 }
 
@@ -167,3 +172,20 @@ fn save_rem(file_path: &std::path::Path, rem: &Rem) {
     let json = serde_json::to_string_pretty(rem).expect("Failed to serialize Rem");
     fs::write(file_path, json).expect("Failed to write to remr.json");
 }
+
+#[derive(Debug)]
+enum TodoError {
+    InvalidIndex { min: usize, max: usize },
+}
+
+impl fmt::Display for TodoError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TodoError::InvalidIndex { min, max } => {
+                write!(f, "Invalid index, valid range is {min}-{max}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for TodoError {}
