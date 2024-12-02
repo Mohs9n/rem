@@ -44,7 +44,7 @@ enum Commands {
         kind: String,
         /// The content of the todo
         content: String,
-        /// The deadline of the todo (for scheduled todos)
+        /// The deadline of the todo (for scheduled todos), valid format: YYYY-MM-DD
         #[arg(short, long)]
         deadline: Option<String>,
     },
@@ -269,10 +269,16 @@ fn handle_new_command(rem: &mut Rem, kind: String, content: String, deadline: Op
         },
         "scheduled" => {
             if let Some(deadline) = deadline {
-                Todo::Scheduled {
-                    content,
-                    deadline,
-                    done: false,
+                let valid_date = chrono::NaiveDate::parse_from_str(&deadline, "%Y-%m-%d");
+                if let Ok(_) = valid_date {
+                    Todo::Scheduled {
+                        content,
+                        deadline,
+                        done: false,
+                    }
+                } else {
+                    println!("Invalid deadline format: {}", deadline);
+                    return;
                 }
             } else {
                 println!("Deadline is required for a scheduled todo");
