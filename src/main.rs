@@ -19,11 +19,11 @@ enum Todo {
     Daily {
         content: String,
         streak: u32,
-        last_marked_done: Option<String>, // ISO 8601 formatted date
+        last_marked_done: Option<String>,
     },
     Scheduled {
         content: String,
-        deadline: String, // You could use a proper datetime type like `chrono::NaiveDate`
+        deadline: String,
         done: bool,
     },
 }
@@ -117,6 +117,29 @@ impl Rem {
                 Todo::Regular { done, .. } | Todo::Scheduled { done, .. } if !done => {
                     println!("{}. {}", i + 1, todo);
                 }
+                Todo::Daily {
+                    content,
+                    streak,
+                    last_marked_done,
+                } => {
+                    let is_pending = match last_marked_done {
+                        Some(last_done_date) => {
+                            if let Ok(last_date) =
+                                chrono::NaiveDate::parse_from_str(last_done_date, "%Y-%m-%d")
+                            {
+                                // Check if the last done date is before today
+                                last_date != chrono::Local::now().date_naive()
+                            } else {
+                                true // If parsing fails, consider it pending
+                            }
+                        }
+                        None => true, // If never done, it's pending
+                    };
+
+                    if is_pending {
+                        println!("{}.  {} (daily, streak: {})", i + 1, content, streak);
+                    }
+                }
                 _ => {}
             }
         }
@@ -141,7 +164,7 @@ impl Rem {
                 ..
             } => {
                 *streak += 1;
-                *last_marked_done = Some(chrono::Local::now().to_string()); // Requires chrono
+                *last_marked_done = Some(chrono::Local::now().format("%Y-%m-%d").to_string());
             }
             Todo::Scheduled { done, .. } => {
                 *done = !*done;
