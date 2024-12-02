@@ -39,7 +39,7 @@ struct Cli {
 enum Commands {
     /// Add a new todo
     New {
-        /// The type of todo (regular, daily, scheduled)
+        /// The type of todo (regular|r, daily|d, scheduled|s)
         #[arg(short, long, default_value = "regular")]
         kind: String,
         /// The content of the todo
@@ -258,16 +258,16 @@ impl std::error::Error for TodoError {}
 
 fn handle_new_command(rem: &mut Rem, kind: String, content: String, deadline: Option<String>) {
     let todo = match kind.as_str() {
-        "regular" => Todo::Regular {
+        "regular" | "r" => Todo::Regular {
             content,
             done: false,
         },
-        "daily" => Todo::Daily {
+        "daily" | "d" => Todo::Daily {
             content,
             streak: 0,
             last_marked_done: None,
         },
-        "scheduled" => {
+        "scheduled" | "s" => {
             if let Some(deadline) = deadline {
                 let valid_date = chrono::NaiveDate::parse_from_str(&deadline, "%Y-%m-%d");
                 if let Ok(_) = valid_date {
