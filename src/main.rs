@@ -69,7 +69,7 @@ fn main() {
     if let Err(err) = fs::create_dir_all(&directory) {
         panic!("ERROR::Failed to create directory: {err}");
     }
-    let file_path = directory.join("remr.json");
+    let file_path = directory.join("rem.json");
 
     let mut rem = load_or_initialize_rem(&file_path);
 
