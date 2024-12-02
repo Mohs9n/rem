@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use home;
 use serde::{Deserialize, Serialize};
-use std::fmt;
+use std::fmt::{self, Display};
 use std::fs::{self, OpenOptions};
 use std::io::Read;
 
@@ -45,6 +45,7 @@ enum Commands {
     },
     /// Lists pending todos
     Pending,
+    /// List all todos
     All,
 }
 
@@ -108,17 +109,7 @@ fn main() {
 impl fmt::Display for Rem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (i, todo) in self.todos.iter().enumerate() {
-            writeln!(
-                f,
-                "{}. {} {}{}",
-                i + 1,
-                if todo.done { "" } else { "" },
-                todo.content,
-                match todo.deadline.clone() {
-                    Some(deadline) => format!(" ({})", deadline),
-                    None => "".to_string(),
-                }
-            )?;
+            writeln!(f, "{}. {}", i + 1, todo)?;
         }
         Ok(())
     }
@@ -128,18 +119,28 @@ impl Rem {
     fn print_pending(&self) {
         for (i, todo) in self.todos.iter().enumerate() {
             if !todo.done {
-                println!(
-                    "{}. {} {}{}",
-                    i + 1,
-                    if todo.done { "" } else { "" },
-                    todo.content,
-                    match todo.deadline.clone() {
-                        Some(deadline) => format!(" ({})", deadline),
-                        None => "".to_string(),
-                    }
-                );
+                println!("{}. {}", i + 1, todo);
             }
         }
+    }
+}
+
+impl fmt::Display for Todo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} {}{}{}",
+            if self.done { "" } else { "" },
+            self.content,
+            match self.deadline.clone() {
+                Some(deadline) => format!(" ({})", deadline),
+                None => "".to_string(),
+            },
+            match self.daily {
+                Some(true) => " (daily)",
+                _ => "",
+            }
+        )
     }
 }
 
