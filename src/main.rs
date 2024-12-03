@@ -43,7 +43,7 @@ enum Commands {
     New {
         /// The content of the todo
         content: String,
-        /// The deadline of the todo (for scheduled todos), valid format: YYYY-MM-DD
+        /// The due date of the todo (for scheduled todos), valid format: YYYY-MM-DD
         #[arg(long)]
         due: Option<String>,
         /// make the todo a daily todo
@@ -71,7 +71,7 @@ fn main() {
     if let Err(err) = fs::create_dir_all(&directory) {
         panic!("ERROR::Failed to create directory: {err}");
     }
-    let file_path = directory.join("remr.json");
+    let file_path = directory.join("rem.json");
 
     let mut rem = load_or_initialize_rem(&file_path);
 
@@ -223,7 +223,7 @@ fn load_or_initialize_rem(file_path: &std::path::Path) -> Rem {
         .write(true)
         .create(true)
         .open(file_path)
-        .expect("Failed to open or create remr.json");
+        .expect("Failed to open or create rem.json");
 
     let mut contents = String::new();
     file.read_to_string(&mut contents)
@@ -232,13 +232,13 @@ fn load_or_initialize_rem(file_path: &std::path::Path) -> Rem {
     if contents.trim().is_empty() {
         Rem { todos: Vec::new() }
     } else {
-        serde_json::from_str(&contents).expect("Failed to parse remr.json")
+        serde_json::from_str(&contents).expect("Failed to parse rem.json")
     }
 }
 
 fn save_rem(file_path: &std::path::Path, rem: &Rem) {
     let json = serde_json::to_string_pretty(rem).expect("Failed to serialize Rem");
-    fs::write(file_path, json).expect("Failed to write to remr.json");
+    fs::write(file_path, json).expect("Failed to write to rem.json");
 }
 
 #[derive(Debug)]
