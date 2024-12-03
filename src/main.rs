@@ -20,16 +20,18 @@ enum Todo {
         content: String,
         streak: u32,
         last_marked_done: Option<String>,
+        // deadline: Option<chrono::naive::NaiveDate>,
     },
     Scheduled {
         content: String,
-        deadline: String,
+        due: String,
         done: bool,
     },
 }
 
 #[derive(Parser)]
-#[command(author, version, about, long_about = None)]
+#[command(version)]
+#[command(about = "TODO CLI app", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -39,14 +41,14 @@ struct Cli {
 enum Commands {
     /// Add a new todo
     New {
-        /// The type of todo (regular|r, daily|d, scheduled|s)
-        #[arg(short, long, default_value = "regular")]
-        kind: String,
         /// The content of the todo
         content: String,
         /// The deadline of the todo (for scheduled todos), valid format: YYYY-MM-DD
+        #[arg(long)]
+        due: Option<String>,
+        /// make the todo a daily todo
         #[arg(short, long)]
-        deadline: Option<String>,
+        daily: bool,
     },
     /// Toggle the done state of a todo by its index
     Toggle {
@@ -69,7 +71,7 @@ fn main() {
     if let Err(err) = fs::create_dir_all(&directory) {
         panic!("ERROR::Failed to create directory: {err}");
     }
-    let file_path = directory.join("rem.json");
+    let file_path = directory.join("remr.json");
 
     let mut rem = load_or_initialize_rem(&file_path);
 
@@ -78,11 +80,11 @@ fn main() {
     // Handle commands
     match cli.command {
         Commands::New {
-            kind,
             content,
-            deadline,
+            due: deadline,
+            daily,
         } => {
-            handle_new_command(&mut rem, kind, content, deadline);
+            handle_new_command(&mut rem, content, deadline, daily);
         }
         Commands::Toggle { index } => match rem.toggle_done(index) {
             Ok(_) => {}
@@ -199,7 +201,7 @@ impl fmt::Display for Todo {
             }
             Todo::Scheduled {
                 content,
-                deadline,
+                due: deadline,
                 done,
             } => {
                 write!(
@@ -256,41 +258,32 @@ impl fmt::Display for TodoError {
 
 impl std::error::Error for TodoError {}
 
-fn handle_new_command(rem: &mut Rem, kind: String, content: String, deadline: Option<String>) {
-    let todo = match kind.as_str() {
-        "regular" | "r" => Todo::Regular {
-            content,
-            done: false,
-        },
-        "daily" | "d" => Todo::Daily {
+fn handle_new_command(rem: &mut Rem, content: String, deadline: Option<String>, daily: bool) {
+    let todo = if daily {
+        Todo::Daily {
             content,
             streak: 0,
             last_marked_done: None,
-        },
-        "scheduled" | "s" => {
-            if let Some(deadline) = deadline {
-                let valid_date = chrono::NaiveDate::parse_from_str(&deadline, "%Y-%m-%d");
-                if let Ok(_) = valid_date {
-                    Todo::Scheduled {
-                        content,
-                        deadline,
-                        done: false,
-                    }
-                } else {
-                    println!("Invalid deadline format: {}", deadline);
-                    return;
-                }
-            } else {
-                println!("Deadline is required for a scheduled todo");
-                return;
-            }
         }
-        _ => {
-            println!("Invalid todo type: {}", kind);
+    } else if let Some(deadline) = deadline {
+        let valid_date = chrono::NaiveDate::parse_from_str(&deadline, "%Y-%m-%d");
+        if valid_date.is_ok() {
+            Todo::Scheduled {
+                content,
+                due: deadline,
+                done: false,
+            }
+        } else {
+            println!("Invalid deadline format: {}", deadline);
             return;
+        }
+    } else {
+        Todo::Regular {
+            content,
+            done: false,
         }
     };
 
+    println!("Added: {}", todo);
     rem.todos.push(todo);
-    println!("New {} todo added!", kind);
 }
