@@ -81,9 +81,12 @@ fn main() {
     match cli.command {
         Some(Commands::New {
             content,
-            due: deadline,
+            due,
             daily,
-        }) => handle_new_command(&mut rem, content, deadline, daily),
+        }) => match rem.add_todo(content, due, daily) {
+            Ok(_) => {}
+            Err(err) => panic!("ERROR::Failed to add todo: {err}"),
+        },
         Some(Commands::Toggle { index }) => match rem.toggle_done(index) {
             Ok(_) => {}
             Err(err) => {
@@ -169,6 +172,44 @@ impl Rem {
         }
         Ok(())
     }
+
+    fn add_todo(
+        &mut self,
+        content: String,
+        due: Option<String>,
+        daily: bool,
+    ) -> Result<(), TodoError> {
+        let todo = Todo::new(content, due, daily)?;
+        self.todos.push(todo);
+        Ok(())
+    }
+}
+
+impl Todo {
+    fn new(content: String, due: Option<String>, daily: bool) -> Result<Self, TodoError> {
+        if daily {
+            Ok(Todo::Daily {
+                content,
+                streak: 0,
+                last_marked_done: None,
+            })
+        } else if let Some(deadline) = due {
+            let valid_date = chrono::NaiveDate::parse_from_str(&deadline, "%Y-%m-%d");
+            match valid_date {
+                Ok(_) => Ok(Todo::Scheduled {
+                    content,
+                    due: deadline,
+                    done: false,
+                }),
+                Err(_) => Err(TodoError::InvalidDate),
+            }
+        } else {
+            Ok(Todo::Regular {
+                content,
+                done: false,
+            })
+        }
+    }
 }
 
 impl fmt::Display for Todo {
@@ -239,6 +280,7 @@ fn save_rem(file_path: &std::path::Path, rem: &Rem) {
 #[derive(Debug)]
 enum TodoError {
     InvalidIndex { min: usize, max: usize },
+    InvalidDate,
 }
 
 impl fmt::Display for TodoError {
@@ -247,38 +289,11 @@ impl fmt::Display for TodoError {
             TodoError::InvalidIndex { min, max } => {
                 write!(f, "Invalid index, valid range is {min}-{max}")
             }
+            TodoError::InvalidDate => {
+                write!(f, "Invalid date format, should be YYYY-MM-DD")
+            }
         }
     }
 }
 
 impl std::error::Error for TodoError {}
-
-fn handle_new_command(rem: &mut Rem, content: String, deadline: Option<String>, daily: bool) {
-    let todo = if daily {
-        Todo::Daily {
-            content,
-            streak: 0,
-            last_marked_done: None,
-        }
-    } else if let Some(deadline) = deadline {
-        let valid_date = chrono::NaiveDate::parse_from_str(&deadline, "%Y-%m-%d");
-        if valid_date.is_ok() {
-            Todo::Scheduled {
-                content,
-                due: deadline,
-                done: false,
-            }
-        } else {
-            println!("Invalid deadline format: {}", deadline);
-            return;
-        }
-    } else {
-        Todo::Regular {
-            content,
-            done: false,
-        }
-    };
-
-    println!("Added: {}", todo);
-    rem.todos.push(todo);
-}
