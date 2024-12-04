@@ -91,9 +91,7 @@ fn main() {
             }
         },
         Some(Commands::Pending) => rem.print_pending(),
-
         Some(Commands::All) => println!("{}", rem),
-
         None => rem.print_pending(),
     }
 
