@@ -34,7 +34,7 @@ enum Todo {
 #[command(about = "TODO CLI app", long_about = None)]
 struct Cli {
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
@@ -55,7 +55,7 @@ enum Commands {
         /// The index of the todo to toggle (1-based)
         index: usize,
     },
-    /// Lists pending todos
+    /// Lists pending todos (default)
     Pending,
     /// List all todos
     All,
@@ -79,25 +79,22 @@ fn main() {
 
     // Handle commands
     match cli.command {
-        Commands::New {
+        Some(Commands::New {
             content,
             due: deadline,
             daily,
-        } => {
-            handle_new_command(&mut rem, content, deadline, daily);
-        }
-        Commands::Toggle { index } => match rem.toggle_done(index) {
+        }) => handle_new_command(&mut rem, content, deadline, daily),
+        Some(Commands::Toggle { index }) => match rem.toggle_done(index) {
             Ok(_) => {}
             Err(err) => {
                 panic!("ERROR::Failed to toggle todo: {err}");
             }
         },
-        Commands::Pending => {
-            rem.print_pending();
-        }
-        Commands::All => {
-            println!("{}", rem)
-        }
+        Some(Commands::Pending) => rem.print_pending(),
+
+        Some(Commands::All) => println!("{}", rem),
+
+        None => rem.print_pending(),
     }
 
     save_rem(&file_path, &rem);
