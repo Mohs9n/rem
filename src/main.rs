@@ -1,5 +1,4 @@
 use clap::{Parser, Subcommand};
-use home;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self};
 use std::fs::{self, OpenOptions};
@@ -20,7 +19,10 @@ enum Todo {
         content: String,
         streak: u32,
         last_marked_done: Option<String>,
+        last_marked_done_backup: Option<String>,
         // deadline: Option<chrono::naive::NaiveDate>,
+        #[serde(default)]
+        longest_streak: u32,
     },
     Scheduled {
         content: String,
@@ -62,9 +64,8 @@ enum Commands {
 }
 
 fn main() {
-    let home = match home::home_dir() {
-        Some(path) => path,
-        None => panic!("ERROR::Home directory not found"),
+    let Some(home) = home::home_dir() else {
+        panic!("ERROR::Home directory not found")
     };
 
     let directory = home.join(".local/share/rem");
@@ -84,18 +85,17 @@ fn main() {
             due,
             daily,
         }) => match rem.add_todo(content, due, daily) {
-            Ok(_) => {}
+            Ok(()) => {}
             Err(err) => panic!("ERROR::Failed to add todo: {err}"),
         },
         Some(Commands::Toggle { index }) => match rem.toggle_done(index) {
-            Ok(_) => {}
+            Ok(()) => {}
             Err(err) => {
                 panic!("ERROR::Failed to toggle todo: {err}");
             }
         },
-        Some(Commands::Pending) => rem.print_pending(),
-        Some(Commands::All) => println!("{}", rem),
-        None => rem.print_pending(),
+        Some(Commands::All) => println!("{rem}"),
+        Some(Commands::Pending) | None => rem.print_pending(),
     }
 
     save_rem(&file_path, &rem);
@@ -121,6 +121,8 @@ impl Rem {
                     content,
                     streak,
                     last_marked_done,
+                    longest_streak: _,
+                    last_marked_done_backup: _,
                 } => {
                     let is_pending = match last_marked_done {
                         Some(last_done_date) => {
@@ -155,19 +157,57 @@ impl Rem {
         let todo = &mut self.todos[index - 1];
 
         match todo {
-            Todo::Regular { done, .. } => {
+            Todo::Regular { done, .. } | Todo::Scheduled { done, .. } => {
                 *done = !*done;
             }
             Todo::Daily {
                 streak,
                 last_marked_done,
+                last_marked_done_backup,
+                longest_streak,
                 ..
             } => {
-                *streak += 1;
-                *last_marked_done = Some(chrono::Local::now().format("%Y-%m-%d").to_string());
-            }
-            Todo::Scheduled { done, .. } => {
-                *done = !*done;
+                use std::cmp::Ordering;
+                let today = chrono::Local::now().date_naive();
+
+                let last_done = last_marked_done
+                    .as_mut()
+                    .map(|date| date.parse::<chrono::NaiveDate>().unwrap());
+
+                if let Some(last_done) = last_done {
+                    match last_done.cmp(&today) {
+                        Ordering::Less => {
+                            if (today - last_done) == chrono::Duration::days(1) {
+                                *streak += 1;
+                            } else {
+                                *streak = 1;
+                            }
+                            // *last_marked_done_backup = (*last_marked_done).clone();
+                            last_marked_done_backup.clone_from(last_marked_done);
+                            *last_marked_done =
+                                Some(chrono::Local::now().format("%Y-%m-%d").to_string());
+                        }
+                        Ordering::Equal => {
+                            *streak -= 1;
+                            *longest_streak -= 1;
+                            // *last_marked_done = (*last_marked_done_backup).clone();
+                            last_marked_done.clone_from(last_marked_done_backup);
+                        }
+                        // should be impossible without editing the file
+                        Ordering::Greater => {
+                            *streak = 1;
+                            *last_marked_done =
+                                Some(chrono::Local::now().format("%Y-%m-%d").to_string());
+                        }
+                    }
+                } else {
+                    *streak += 1;
+                    *last_marked_done = Some(chrono::Local::now().format("%Y-%m-%d").to_string());
+                }
+
+                if *streak > *longest_streak {
+                    *longest_streak = *streak;
+                }
             }
         }
         Ok(())
@@ -192,6 +232,8 @@ impl Todo {
                 content,
                 streak: 0,
                 last_marked_done: None,
+                last_marked_done_backup: None,
+                longest_streak: 0,
             })
         } else if let Some(deadline) = due {
             let valid_date = chrono::NaiveDate::parse_from_str(&deadline, "%Y-%m-%d");
@@ -222,16 +264,43 @@ impl fmt::Display for Todo {
                 content,
                 streak,
                 last_marked_done,
+                longest_streak,
+                last_marked_done_backup: _,
             } => {
+                use std::cmp::Ordering;
+                let today = chrono::Local::now().date_naive();
+
+                let mut done = false;
+
+                let last_done = last_marked_done
+                    .as_ref()
+                    .map(|date| date.parse::<chrono::NaiveDate>().unwrap());
+
+                if let Some(date) = last_done {
+                    match date.cmp(&today) {
+                        Ordering::Less | Ordering::Greater => {
+                            done = false;
+                        }
+                        Ordering::Equal => {
+                            done = true;
+                        }
+                    }
+                }
+
                 write!(
                     f,
-                    "{} {} (daily, streak: {}){}",
-                    if *streak > 0 { "" } else { "" },
+                    "{} {} (daily, streak: {}{}){}",
+                    if done { "" } else { "" },
                     content,
                     streak,
+                    if *streak < *longest_streak {
+                        format!(", longest: {}", *longest_streak)
+                    } else {
+                        String::new()
+                    },
                     match last_marked_done {
-                        Some(date) => format!(" (last done: {})", date),
-                        None => "".to_string(),
+                        Some(date) => format!(" (last done: {date})"),
+                        None => String::new(),
                     }
                 )
             }
@@ -258,6 +327,7 @@ fn load_or_initialize_rem(file_path: &std::path::Path) -> Rem {
         .read(true)
         .write(true)
         .create(true)
+        .truncate(false)
         .open(file_path)
         .expect("Failed to open or create rem.json");
 
