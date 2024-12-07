@@ -27,7 +27,7 @@ fn get_save_file_path() -> std::path::PathBuf {
         panic!("ERROR::Failed to create directory: {err}");
     }
 
-    directory.join("remr.json")
+    directory.join("rem.json")
 }
 
 fn load_or_initialize_rem(file_path: &std::path::Path) -> types::Rem {
