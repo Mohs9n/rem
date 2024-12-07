@@ -1,6 +1,5 @@
-use clap::{arg, command, Parser, Subcommand};
-
 use crate::types::Rem;
+use clap::{arg, command, Args, Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(version)]
@@ -13,16 +12,7 @@ pub struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Add a new todo
-    New {
-        /// The content of the todo
-        content: String,
-        /// The due date of the todo (for scheduled todos), valid format: YYYY-MM-DD
-        #[arg(long)]
-        due: Option<String>,
-        /// make the todo a daily todo
-        #[arg(short, long)]
-        daily: bool,
-    },
+    New(NewTodoParams),
     /// Toggle the done state of a todo by its index
     Toggle {
         /// The index of the todo to toggle (1-based)
@@ -34,14 +24,22 @@ enum Commands {
     All,
 }
 
+#[derive(Debug, Clone, Args)]
+pub struct NewTodoParams {
+    /// The content of the todo
+    pub content: String,
+    /// The due date of the todo (for scheduled todos), valid format: YYYY-MM-DD
+    #[arg(long)]
+    pub due: Option<String>,
+    /// make the todo a daily todo
+    #[arg(short, long)]
+    pub daily: bool,
+}
+
 impl Cli {
     pub fn handle_cli(&self, rem: &mut Rem) {
         match &self.command {
-            Some(Commands::New {
-                content,
-                due,
-                daily,
-            }) => match rem.add_todo(content.clone(), due.clone(), *daily) {
+            Some(Commands::New(params)) => match rem.add_todo(params) {
                 Ok(()) => {}
                 Err(err) => panic!("ERROR::Failed to add todo: {err}"),
             },

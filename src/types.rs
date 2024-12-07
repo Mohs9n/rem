@@ -2,6 +2,8 @@ use core::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::cli::NewTodoParams;
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Rem {
     pub todos: Vec<Todo>,
@@ -141,41 +143,36 @@ impl Rem {
         Ok(())
     }
 
-    pub fn add_todo(
-        &mut self,
-        content: String,
-        due: Option<String>,
-        daily: bool,
-    ) -> Result<(), TodoError> {
-        let todo = Todo::new(content, due, daily)?;
+    pub fn add_todo(&mut self, params: &NewTodoParams) -> Result<(), TodoError> {
+        let todo = Todo::new(params)?;
         self.todos.push(todo);
         Ok(())
     }
 }
 
 impl Todo {
-    pub fn new(content: String, due: Option<String>, daily: bool) -> Result<Self, TodoError> {
-        if daily {
+    pub fn new(params: &NewTodoParams) -> Result<Self, TodoError> {
+        if params.daily {
             Ok(Todo::Daily {
-                content,
+                content: params.content.clone(),
                 streak: 0,
                 last_marked_done: None,
                 last_marked_done_backup: None,
                 longest_streak: 0,
             })
-        } else if let Some(deadline) = due {
-            let valid_date = chrono::NaiveDate::parse_from_str(&deadline, "%Y-%m-%d");
+        } else if let Some(due) = params.due.clone() {
+            let valid_date = chrono::NaiveDate::parse_from_str(&due, "%Y-%m-%d");
             match valid_date {
                 Ok(_) => Ok(Todo::Scheduled {
-                    content,
-                    due: deadline,
+                    content: params.content.clone(),
+                    due,
                     done: false,
                 }),
                 Err(_) => Err(TodoError::InvalidDate),
             }
         } else {
             Ok(Todo::Regular {
-                content,
+                content: params.content.clone(),
                 done: false,
             })
         }
