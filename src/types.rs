@@ -77,7 +77,7 @@ impl Rem {
         }
     }
 
-    pub fn toggle_done(&mut self, index: usize) -> Result<(), TodoError> {
+    pub fn toggle_todo(&mut self, index: usize) -> Result<(), TodoError> {
         if index == 0 || index > self.todos.len() {
             return Err(TodoError::InvalidIndex {
                 min: 1,
@@ -86,7 +86,90 @@ impl Rem {
         }
         let todo = &mut self.todos[index - 1];
 
-        match todo {
+        todo.toggle_done();
+        Ok(())
+    }
+
+    pub fn add_todo(&mut self, params: &NewTodoParams) -> Result<(), TodoError> {
+        let todo = Todo::new(params)?;
+        self.todos.push(todo);
+        Ok(())
+    }
+
+    pub fn update_state(&mut self) {
+        for todo in &mut self.todos {
+            match todo {
+                Todo::Daily {
+                    streak,
+                    last_marked_done,
+                    last_marked_done_backup,
+                    longest_streak,
+                    ..
+                } => {
+                    let today = chrono::Local::now().date_naive();
+                    if let Some(last_done) = last_marked_done {
+                        if let Ok(last_done) =
+                            chrono::NaiveDate::parse_from_str(last_done, "%Y-%m-%d")
+                        {
+                            use std::cmp::Ordering;
+                            match last_done.cmp(&today) {
+                                Ordering::Less => {
+                                    if (today - last_done) > chrono::Duration::days(1) {
+                                        if *streak > *longest_streak {
+                                            *longest_streak = *streak;
+                                        }
+                                        *streak = 0;
+                                    }
+                                    last_marked_done_backup.clone_from(last_marked_done);
+                                    // *last_marked_done = None; // shouldn't be necessary
+                                }
+                                // should be impossible without editing the file
+                                Ordering::Greater => {
+                                    *streak = 1;
+                                    *last_marked_done =
+                                        Some(chrono::Local::now().format("%Y-%m-%d").to_string());
+                                }
+                                Ordering::Equal => {}
+                            }
+                        }
+                    }
+                }
+                Todo::Scheduled { .. } | Todo::Regular { .. } => {}
+            }
+        }
+    }
+}
+
+impl Todo {
+    pub fn new(params: &NewTodoParams) -> Result<Self, TodoError> {
+        if params.daily {
+            Ok(Todo::Daily {
+                content: params.content.clone(),
+                streak: 0,
+                last_marked_done: None,
+                last_marked_done_backup: None,
+                longest_streak: 0,
+            })
+        } else if let Some(due) = params.due.clone() {
+            let valid_date = chrono::NaiveDate::parse_from_str(&due, "%Y-%m-%d");
+            match valid_date {
+                Ok(_) => Ok(Todo::Scheduled {
+                    content: params.content.clone(),
+                    due,
+                    done: false,
+                }),
+                Err(_) => Err(TodoError::InvalidDate),
+            }
+        } else {
+            Ok(Todo::Regular {
+                content: params.content.clone(),
+                done: false,
+            })
+        }
+    }
+
+    pub fn toggle_done(&mut self) {
+        match self {
             Todo::Regular { done, .. } | Todo::Scheduled { done, .. } => {
                 *done = !*done;
             }
@@ -139,42 +222,6 @@ impl Rem {
                     *longest_streak = *streak;
                 }
             }
-        }
-        Ok(())
-    }
-
-    pub fn add_todo(&mut self, params: &NewTodoParams) -> Result<(), TodoError> {
-        let todo = Todo::new(params)?;
-        self.todos.push(todo);
-        Ok(())
-    }
-}
-
-impl Todo {
-    pub fn new(params: &NewTodoParams) -> Result<Self, TodoError> {
-        if params.daily {
-            Ok(Todo::Daily {
-                content: params.content.clone(),
-                streak: 0,
-                last_marked_done: None,
-                last_marked_done_backup: None,
-                longest_streak: 0,
-            })
-        } else if let Some(due) = params.due.clone() {
-            let valid_date = chrono::NaiveDate::parse_from_str(&due, "%Y-%m-%d");
-            match valid_date {
-                Ok(_) => Ok(Todo::Scheduled {
-                    content: params.content.clone(),
-                    due,
-                    done: false,
-                }),
-                Err(_) => Err(TodoError::InvalidDate),
-            }
-        } else {
-            Ok(Todo::Regular {
-                content: params.content.clone(),
-                done: false,
-            })
         }
     }
 }
@@ -234,13 +281,23 @@ impl fmt::Display for Todo {
                 due: deadline,
                 done,
             } => {
+                let Ok(date) = chrono::NaiveDate::parse_from_str(deadline, "%Y-%m-%d") else {
+                    return Err(fmt::Error);
+                };
+
+                let status = if date < chrono::Local::now().date_naive() && !*done {
+                    " (overdue)"
+                } else {
+                    " (due)"
+                };
+
                 write!(
                     f,
                     "{} {} (scheduled, deadline: {}){}",
                     if *done { "" } else { "" },
                     content,
                     deadline,
-                    if *done { "" } else { " (pending)" }
+                    status
                 )
             }
         }

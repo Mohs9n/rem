@@ -9,6 +9,8 @@ fn main() {
 
     let mut rem = load_or_initialize_rem(&file_path);
 
+    rem.update_state();
+
     let cli = cli::Cli::parse();
 
     // Handle commands
@@ -37,7 +39,7 @@ fn load_or_initialize_rem(file_path: &std::path::Path) -> types::Rem {
         .create(true)
         .truncate(false)
         .open(file_path)
-        .expect("Failed to open or create rem.json");
+        .expect("Failed to open or create {file_path}");
 
     let mut contents = String::new();
     file.read_to_string(&mut contents)

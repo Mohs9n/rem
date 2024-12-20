@@ -43,7 +43,7 @@ impl Cli {
                 Ok(()) => {}
                 Err(err) => panic!("ERROR::Failed to add todo: {err}"),
             },
-            Some(Commands::Toggle { index }) => match rem.toggle_done(*index) {
+            Some(Commands::Toggle { index }) => match rem.toggle_todo(*index) {
                 Ok(()) => {}
                 Err(err) => {
                     panic!("ERROR::Failed to toggle todo: {err}");
