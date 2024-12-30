@@ -1,0 +1,173 @@
+#compdef rem
+
+autoload -U is-at-least
+
+_rem() {
+    typeset -A opt_args
+    typeset -a _arguments_options
+    local ret=1
+
+    if is-at-least 5.2; then
+        _arguments_options=(-s -S -C)
+    else
+        _arguments_options=(-s -C)
+    fi
+
+    local context curcontext="$curcontext" state line
+    _arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+":: :_rem_commands" \
+"*::: :->rem" \
+&& ret=0
+    case $state in
+    (rem)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:rem-command-$line[1]:"
+        case $line[1] in
+            (new)
+_arguments "${_arguments_options[@]}" : \
+'--due=[The due date of the todo (for scheduled todos), valid format\: YYYY-MM-DD]:DUE:_default' \
+'-d[make the todo a daily todo]' \
+'--daily[make the todo a daily todo]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':content -- The content of the todo:_default' \
+&& ret=0
+;;
+(toggle)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+':index -- The index of the todo to toggle (1-based):_default' \
+&& ret=0
+;;
+(pending)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(all)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_rem__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:rem-help-command-$line[1]:"
+        case $line[1] in
+            (new)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(toggle)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(pending)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(all)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+}
+
+(( $+functions[_rem_commands] )) ||
+_rem_commands() {
+    local commands; commands=(
+'new:Add a new todo' \
+'toggle:Toggle the done state of a todo by its index' \
+'pending:Lists pending todos (default)' \
+'all:List all todos' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'rem commands' commands "$@"
+}
+(( $+functions[_rem__all_commands] )) ||
+_rem__all_commands() {
+    local commands; commands=()
+    _describe -t commands 'rem all commands' commands "$@"
+}
+(( $+functions[_rem__help_commands] )) ||
+_rem__help_commands() {
+    local commands; commands=(
+'new:Add a new todo' \
+'toggle:Toggle the done state of a todo by its index' \
+'pending:Lists pending todos (default)' \
+'all:List all todos' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'rem help commands' commands "$@"
+}
+(( $+functions[_rem__help__all_commands] )) ||
+_rem__help__all_commands() {
+    local commands; commands=()
+    _describe -t commands 'rem help all commands' commands "$@"
+}
+(( $+functions[_rem__help__help_commands] )) ||
+_rem__help__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'rem help help commands' commands "$@"
+}
+(( $+functions[_rem__help__new_commands] )) ||
+_rem__help__new_commands() {
+    local commands; commands=()
+    _describe -t commands 'rem help new commands' commands "$@"
+}
+(( $+functions[_rem__help__pending_commands] )) ||
+_rem__help__pending_commands() {
+    local commands; commands=()
+    _describe -t commands 'rem help pending commands' commands "$@"
+}
+(( $+functions[_rem__help__toggle_commands] )) ||
+_rem__help__toggle_commands() {
+    local commands; commands=()
+    _describe -t commands 'rem help toggle commands' commands "$@"
+}
+(( $+functions[_rem__new_commands] )) ||
+_rem__new_commands() {
+    local commands; commands=()
+    _describe -t commands 'rem new commands' commands "$@"
+}
+(( $+functions[_rem__pending_commands] )) ||
+_rem__pending_commands() {
+    local commands; commands=()
+    _describe -t commands 'rem pending commands' commands "$@"
+}
+(( $+functions[_rem__toggle_commands] )) ||
+_rem__toggle_commands() {
+    local commands; commands=()
+    _describe -t commands 'rem toggle commands' commands "$@"
+}
+
+if [ "$funcstack[1]" = "_rem" ]; then
+    _rem "$@"
+else
+    compdef _rem rem
+fi

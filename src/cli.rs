@@ -1,4 +1,3 @@
-use crate::types::Rem;
 use clap::{arg, command, Args, Parser, Subcommand};
 
 #[derive(Parser)]
@@ -6,11 +5,11 @@ use clap::{arg, command, Args, Parser, Subcommand};
 #[command(about = "TODO CLI app", long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
-    command: Option<Commands>,
+    pub command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
-enum Commands {
+pub enum Commands {
     /// Add a new todo
     New(NewTodoParams),
     /// Toggle the done state of a todo by its index
@@ -34,23 +33,4 @@ pub struct NewTodoParams {
     /// make the todo a daily todo
     #[arg(short, long)]
     pub daily: bool,
-}
-
-impl Cli {
-    pub fn handle_cli(&self, rem: &mut Rem) {
-        match &self.command {
-            Some(Commands::New(params)) => match rem.add_todo(params) {
-                Ok(()) => {}
-                Err(err) => panic!("ERROR::Failed to add todo: {err}"),
-            },
-            Some(Commands::Toggle { index }) => match rem.toggle_todo(*index) {
-                Ok(()) => {}
-                Err(err) => {
-                    panic!("ERROR::Failed to toggle todo: {err}");
-                }
-            },
-            Some(Commands::All) => println!("{rem}"),
-            Some(Commands::Pending) | None => rem.print_pending(),
-        }
-    }
 }
